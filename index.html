@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script src="tsne.js"></script>
+    
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+
+    <link rel="stylesheet/less" type="text/css" href="styles.less" />
+    <script src="//cdn.jsdelivr.net/npm/less" ></script>
+</head>
+<html leng="en">
+    <script>
+        var width = window.innerWidth - 30;
+        var height = window.innerHeight - 90;
+        var T;
+        var data;
+        var doTrain;
+        var numberOfPoints = 3;
+
+        var resetLines = true;
+        var showLineLabels = true;
+
+        var tx=0, ty=0;
+        var ss=1;
+        //rendering related start
+        function zoomHandler() {
+            tx = d3.event.transform.x;
+            ty = d3.event.transform.y;
+            ss = d3.event.transform.k;
+        }
+
+        function relativeEmbeddingDist(idx) {
+            var Y = T.getSolution();
+            for (var i = 0; i < Y.length; i++) {
+                if (i !== idx) {
+                    continue;
+                }
+                let pairDist = [];
+                Y.forEach((y, j) => {
+                    if (i === j) {
+                        pairDist.push({x: 0, y: 0});
+                    } else {
+                        pairDist.push({x: ((Y[i][0]*20*ss + tx) + 400) - ((Y[j][0]*20*ss + tx) + 400), 
+                                        y: ((Y[i][1]*20*ss + tx) + 400) - ((Y[j][1]*20*ss + tx) + 400)});
+                    }
+                });
+                return pairDist;
+            };
+        }
+
+        function updateEmbedding() {
+            // get current solution
+            var Y = T.getSolution();
+            // move the groups accordingly
+            gs.attr("transform", function(d, i) { 
+                return "translate(" + ((Y[i][0]*20*ss + tx) + 400) + "," + ((Y[i][1]*20*ss + ty) + 400) + ")"; });
+
+            if(resetLines) {
+                gs.selectAll('line').remove();
+            }
+
+            if (showLineLabels) {
+                gs.selectAll('.lineLabel').remove();
+            }
+        
+            Y.forEach((y, idx) => {
+                let pairDist = relativeEmbeddingDist(idx);
+                gs.append("line")          // attach a line
+                    .style("stroke", "black")  // colour the line
+                    .attr("x1", 0)     // x position of the first end of the line
+                    .attr("y1", 0)      // y position of the first end of the line
+                    .attr("x2", function(d, i) {
+                        return pairDist[i].x
+                    })
+                    .attr("y2", function(d, i) {
+                        return pairDist[i].y
+                    });
+                if(showLineLabels) {
+                    gs.append("text")
+                        .attr("y", function(d, i) {
+                            return pairDist[i].y/2 - 10
+                        })//magic number here
+                        .attr("x", function(d, i) {
+                            return pairDist[i].x/2
+                        })
+                        .attr('text-anchor', 'middle')
+                        .attr("class", "lineLabel")
+                        .text(function(d, i) {
+                            return idx !== i ? (Math.sqrt((Math.pow(pairDist[i].x,2))+(Math.pow(pairDist[i].y,2)))/1000).toFixed(2) : ''
+                        });
+                }
+                
+            });
+        }
+
+        var svg;
+        function initEmbedding() {
+            $("#embed").empty();
+            var div = d3.select("#embed");
+            svg = div.append("svg") // svg is global
+                .attr("width", width)
+                .attr("height", height);
+        }
+
+        var gs;
+        var cs;
+        var ts;
+        function drawEmbedding() {
+            gs = svg.selectAll(".b")
+            .data(data)
+            .enter().append("g")
+            .attr("class", "u");
+
+            cs = gs.append("circle")
+            .attr("cx", 0)
+            .attr("cy", 0)
+            .attr("r", 5)
+            .attr('stroke-width', 1)
+            .attr('stroke', 'black')
+            .attr('fill', 'black');
+
+            if(labels.length > 0) {
+                ts = gs.append("text")
+                    .attr("text-anchor", "top")
+                    .attr("transform", "translate(5, -5)")
+                    .attr("font-size", 12)
+                    .attr("fill", "#333")
+                    .text(function(d,i) { return labels[i]; });
+            }
+
+            var zoomListener = d3.zoom()
+            .scaleExtent([0.1, 10])
+            .extent([[0, 0], [width, height]])
+            .on("zoom", zoomHandler);
+            zoomListener(svg);
+        }
+
+        labels = [];
+        var iid;
+        function init(numOfPoints) {
+            initEmbedding();
+            var opt = {}
+            opt.epsilon = 10; // epsilon is learning rate (10 = default)
+            opt.perplexity = 30; // roughly how many neighbors each point influences (30 = default)
+            opt.dim = 2; // dimensionality of the embedding (2 = default)
+
+            T = new tsnejs.tSNE(opt); // create a tSNE instance
+
+            switch(numOfPoints) {
+                case 3:
+                    numberOfPoints = 3;
+                    data = [[1.0, 0.1, 0.2], [0.1, 1.0, 0.8], [0.2, 0.8, 1.0]];
+                    break;
+                case 4:
+                    numberOfPoints = 4;
+                    data = [[1.0, 0.1, 0.2, 0.9], [0.1, 1.0, 0.8, 0.3], [0.2, 0.8, 1.0, 0.4], [0.9, 0.3, 0.4, 1.0]];
+                    break;
+                case 5:
+                    numberOfPoints = 5;
+                    data = [[1.0, 0.1, 0.2, 0.9, 0.7], [0.1, 1.0, 0.8, 0.3, 0.6], [0.2, 0.8, 1.0, 0.4, 0.4], [0.9, 0.3, 0.4, 1.0, 0.4], [0.7, 0.6, 0.4, 0.4, 1.0]];
+                    break;
+                default:
+                    numberOfPoints = 3;
+                    data = [[1.0, 0.1, 0.2], [0.1, 1.0, 0.8], [0.2, 0.8, 1.0]];
+            }
+            
+            T.initDataDist(data);
+            drawEmbedding();
+            iid = setInterval(step, 100);
+            doTrain = true;
+        }
+
+        var stepnum = 0;
+        function step() {
+            if(doTrain) {
+                var cost = T.step(); // do a few steps
+                $("#cost").html("iteration " + T.iter + ", cost: " + cost);
+            }
+            updateEmbedding();
+        }
+
+        function stop () {
+            doTrain = false;
+            clearInterval(iid);
+        }
+
+        function toggleResetLines(){
+            resetLines = !resetLines;
+            stop();
+            init(numberOfPoints);
+        }
+
+        function toggleShowLineLabels(){
+            showLineLabels = !showLineLabels;
+            stop();
+            init(numberOfPoints);
+        }
+    </script>
+
+    <body>
+        <div>
+            <button type="button" onclick="init(3)" class="btn">Start 3</button>
+            <button type="button" onclick="init(4)" class="btn">Start 4</button>
+            <button type="button" onclick="init(5)" class="btn">Start 5</button>
+            <button type="button" onclick="stop()" class="btn">Stop</button>  
+        </div>
+        
+
+        <input id="resetLines" name="resetLines" type="checkbox" checked="true" onchange="toggleResetLines()">
+        <label for="resetLines">Reset lines</label>
+
+        <input id="showLineLabels" name="showLineLabels" type="checkbox" checked="true" onchange="toggleShowLineLabels()">
+        <label for="showLineLabels">Show lines labels</label>
+
+        <div id="embed"></div>
+    </body>
+</html>
