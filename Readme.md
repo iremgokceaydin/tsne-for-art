@@ -5,7 +5,7 @@ tSNEJS is an implementation of t-SNE visualization algorithm in Javascript. Chec
 
 t-SNE is a visualization algorithm that embeds things in 2 or 3 dimensions. If you have some data and you can measure their pairwise differences, t-SNE visualization can help you identify clusters in your data. See example below.
 
-In this project, I draw lines between data points and as the algorithm runs, it creates pieces of arts where you can move inside.
+In this project, I draw lines between data points and as the algorithm runs, it creates pieces of arts which you can move inside of.
 ![](https://raw.githubusercontent.com/iremgokceaydin/tsne-for-art/master/images/1.jpg)
 ![](https://raw.githubusercontent.com/iremgokceaydin/tsne-for-art/master/images/2.jpg)
 ![](https://raw.githubusercontent.com/iremgokceaydin/tsne-for-art/master/images/3.jpg)
